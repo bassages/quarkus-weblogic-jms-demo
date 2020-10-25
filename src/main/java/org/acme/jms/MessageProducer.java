@@ -2,6 +2,7 @@ package org.acme.jms;
 
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import javax.enterprise.context.ApplicationScoped;
@@ -20,8 +21,13 @@ import java.util.concurrent.TimeUnit;
  */
 @ApplicationScoped
 public class MessageProducer implements Runnable {
-
     private static final Logger LOG = Logger.getLogger(MessageProducer.class);
+
+    @ConfigProperty(name = "queueNameForOutgoingMessages")
+    String queueNameForOutgoingMessages;
+
+    @ConfigProperty(name = "jmsConnectionFactoryName")
+    String jmsConnectionFactoryName;
 
     private final Random random = new Random();
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
@@ -38,10 +44,14 @@ public class MessageProducer implements Runnable {
     public void run() {
         try {
             Context context = getContext();
-            final QueueConnectionFactory queueConnectionFactory = (QueueConnectionFactory) context.lookup("jms/connectionfactory");
+            final QueueConnectionFactory queueConnectionFactory = (QueueConnectionFactory) context.lookup(jmsConnectionFactoryName);
+
             try (QueueConnection connection = queueConnectionFactory.createQueueConnection()) {
-                final Queue queue = (Queue) context.lookup("jms/queue0");
-                try (QueueSession queueSession = connection.createQueueSession(true, Session.AUTO_ACKNOWLEDGE)) {
+                final Queue queue = (Queue) context.lookup(queueNameForOutgoingMessages);
+                final boolean transacted = true;
+
+                try (QueueSession queueSession = connection.createQueueSession(transacted, Session.AUTO_ACKNOWLEDGE)) {
+
                     try (QueueSender queueSender = queueSession.createSender(queue)) {
                         final String message = Integer.toString(random.nextInt(100));
                         final TextMessage textMessage = queueSession.createTextMessage(message);
