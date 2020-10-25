@@ -10,6 +10,7 @@ import javax.enterprise.event.Observes;
 import javax.inject.Inject;
 import javax.jms.*;
 import javax.naming.Context;
+import javax.naming.NamingException;
 
 /**
  * A bean consuming messages from a Weblogic JMS queue.
@@ -27,8 +28,6 @@ public class MessageConsumer implements MessageListener, ExceptionListener {
     QueueConnectionFactory queueConnectionFactory;
 
     private QueueConnection queueConnection;
-    private QueueSession queueSession;
-    private QueueReceiver queueReceiver;
 
     void onStart(@Observes StartupEvent ev) {
         LOG.infov("Start listenening for messages on queue [{0}]", queueNameForIncomingMessages);
@@ -38,13 +37,14 @@ public class MessageConsumer implements MessageListener, ExceptionListener {
             queueConnection.start();
 
             final Queue queue = (Queue) context.lookup(queueNameForIncomingMessages);
-            final boolean transacted = false;
 
-            queueSession = queueConnection.createQueueSession(transacted, Session.AUTO_ACKNOWLEDGE);
-            queueReceiver = queueSession.createReceiver(queue);
+            final boolean transacted = false;
+            QueueSession queueSession = queueConnection.createQueueSession(transacted, Session.AUTO_ACKNOWLEDGE);
+
+            QueueReceiver queueReceiver = queueSession.createReceiver(queue);
             queueReceiver.setMessageListener(this);
 
-        } catch (Exception e) {
+        } catch (JMSException | NamingException e) {
             LOG.error("Faild to start receiving messages from queue", e);
         }
     }
