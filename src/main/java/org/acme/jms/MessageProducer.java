@@ -7,10 +7,9 @@ import org.jboss.logging.Logger;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Observes;
+import javax.inject.Inject;
 import javax.jms.*;
 import javax.naming.Context;
-import javax.naming.InitialContext;
-import javax.naming.NamingException;
 import java.util.Random;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -26,8 +25,10 @@ public class MessageProducer implements Runnable {
     @ConfigProperty(name = "queueNameForOutgoingMessages")
     String queueNameForOutgoingMessages;
 
-    @ConfigProperty(name = "jmsConnectionFactoryName")
-    String jmsConnectionFactoryName;
+    @Inject
+    Context context;
+    @Inject
+    QueueConnectionFactory queueConnectionFactory;
 
     private final Random random = new Random();
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
@@ -43,9 +44,6 @@ public class MessageProducer implements Runnable {
     @Override
     public void run() {
         try {
-            Context context = getContext();
-            final QueueConnectionFactory queueConnectionFactory = (QueueConnectionFactory) context.lookup(jmsConnectionFactoryName);
-
             try (QueueConnection connection = queueConnectionFactory.createQueueConnection()) {
                 final Queue queue = (Queue) context.lookup(queueNameForOutgoingMessages);
                 final boolean transacted = true;
@@ -55,23 +53,14 @@ public class MessageProducer implements Runnable {
                     try (QueueSender queueSender = queueSession.createSender(queue)) {
                         final String message = Integer.toString(random.nextInt(100));
                         final TextMessage textMessage = queueSession.createTextMessage(message);
-                        LOG.infov("Sending message to queue: {0}", textMessage.getText());
+                        LOG.infov("Sending message to queue [{0}]: [{1}]", queueNameForOutgoingMessages, textMessage.getText());
                         queueSender.send(textMessage);
                         queueSession.commit();
                     }
                 }
             }
         } catch (Exception e) {
-            LOG.error("Faild to send message to queue", e);
+            LOG.error("Failed to send message to queue", e);
         }
-    }
-
-    private Context getContext() throws NamingException {
-        Context context = new InitialContext();
-        context.addToEnvironment(Context.INITIAL_CONTEXT_FACTORY,"weblogic.jndi.WLInitialContextFactory");
-        context.addToEnvironment(Context.PROVIDER_URL,"t3://localhost:7001");
-        context.addToEnvironment(Context.SECURITY_CREDENTIALS,"weblogic1");
-        context.addToEnvironment(Context.SECURITY_PRINCIPAL,"weblogic1");
-        return context;
     }
 }

@@ -1,73 +1,87 @@
 package org.acme.jms;
 
+import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Observes;
+import javax.inject.Inject;
 import javax.jms.*;
 import javax.naming.Context;
-import javax.naming.InitialContext;
-import javax.naming.NamingException;
 
 /**
  * A bean consuming messages from a Weblogic JMS queue.
  */
 @ApplicationScoped
-public class MessageConsumer {
+public class MessageConsumer implements MessageListener, ExceptionListener {
     private static final Logger LOG = Logger.getLogger(MessageConsumer.class);
 
     @ConfigProperty(name = "queueNameForIncomingMessages")
     String queueNameForIncomingMessages;
 
-    @ConfigProperty(name = "jmsConnectionFactoryName")
-    String jmsConnectionFactoryName;
+    @Inject
+    Context context;
+    @Inject
+    QueueConnectionFactory queueConnectionFactory;
 
-    private boolean stop = false;
+    private QueueConnection queueConnection;
+    private QueueSession queueSession;
+    private QueueReceiver queueReceiver;
 
     void onStart(@Observes StartupEvent ev) {
+        LOG.infov("Start listenening for messages on queue [{0}]", queueNameForIncomingMessages);
         try {
-            final Context context = getContext();
-            final QueueConnectionFactory queueConnectionFactory = (QueueConnectionFactory) context.lookup(jmsConnectionFactoryName);
+            queueConnection = queueConnectionFactory.createQueueConnection();
+            queueConnection.setExceptionListener(this);
+            queueConnection.start();
 
-            try (QueueConnection queueConnection = queueConnectionFactory.createQueueConnection()) {
-                queueConnection.start();
+            final Queue queue = (Queue) context.lookup(queueNameForIncomingMessages);
+            final boolean transacted = false;
 
-                final Queue queue = (Queue) context.lookup(queueNameForIncomingMessages);
-                final boolean transacted = false;
+            queueSession = queueConnection.createQueueSession(transacted, Session.AUTO_ACKNOWLEDGE);
+            queueReceiver = queueSession.createReceiver(queue);
+            queueReceiver.setMessageListener(this);
 
-                try (QueueSession queueSession = queueConnection.createQueueSession(transacted, Session.AUTO_ACKNOWLEDGE)) {
-                    try (QueueReceiver queueReceiver = queueSession.createReceiver(queue)) {
-                        while (!stop) {
-                            receiveNextMessage(queueReceiver);
-                        }
-                    }
-                }
-            }
         } catch (Exception e) {
-            LOG.error("Faild to receive messages from queue", e);
+            LOG.error("Faild to start receiving messages from queue", e);
         }
     }
 
-    private void receiveNextMessage(QueueReceiver queueReceiver) throws JMSException {
-        final Message message = queueReceiver.receiveNoWait();
-        if (message != null) {
-            if (message instanceof TextMessage) {
+    void onStop(@Observes ShutdownEvent ev) {
+        try {
+            LOG.infov("Closing connection to queue [{0}]", queueNameForIncomingMessages);
+            // Close the queue connection. This will in turn close both the session and the QueueSender.
+            queueConnection.close();
+        } catch (JMSException e) {
+            LOG.error("Error while closing the connection", e);
+        }
+    }
+
+    @Override
+    public void onMessage(final Message message) {
+        if (message instanceof TextMessage) {
+            try {
                 TextMessage textMessage = (TextMessage) message;
-                LOG.infov("Received message from queue: {0}", textMessage.getText());
-            } else {
-                LOG.infov("Received non-textmessage from queue: {0}", message);
+                LOG.infov("Received message from queue [{0}]: [{1}]", queueNameForIncomingMessages, textMessage.getText());
+            } catch (JMSException e) {
+                LOG.error("Failed to get text from message", e);
             }
+        } else {
+            LOG.infov("Received non-textMessage from queue: [{0}]", message);
         }
     }
 
-    private Context getContext() throws NamingException {
-        Context context = new InitialContext();
-        context.addToEnvironment(Context.INITIAL_CONTEXT_FACTORY,"weblogic.jndi.WLInitialContextFactory");
-        context.addToEnvironment(Context.PROVIDER_URL,"t3://localhost:7001");
-        context.addToEnvironment(Context.SECURITY_CREDENTIALS,"weblogic1");
-        context.addToEnvironment(Context.SECURITY_PRINCIPAL,"weblogic1");
-        return context;
+    /**
+     This method is called asynchronously by JMS when some error occurs.
+     When using an asynchronous message listener it is recommended to use
+     an exception listener also since JMS have no way to report errors
+     otherwise.
+
+     @param exception A JMS exception.
+     */
+    public void onException(JMSException exception) {
+        LOG.error("Error occurred", exception);
     }
 }
