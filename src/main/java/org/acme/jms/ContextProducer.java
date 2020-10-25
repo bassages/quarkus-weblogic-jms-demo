@@ -24,9 +24,9 @@ public class ContextProducer {
     public Context produceContext() throws NamingException {
         final Context context = new InitialContext();
         context.addToEnvironment(Context.INITIAL_CONTEXT_FACTORY, WEBLOGIC_JNDI_WLINITIAL_CONTEXT_FACTORY);
-        context.addToEnvironment(Context.PROVIDER_URL,jmsProviderUrl);
-        context.addToEnvironment(Context.SECURITY_CREDENTIALS,jmsProviderSecurityCredentials);
-        context.addToEnvironment(Context.SECURITY_PRINCIPAL,jmsProviderSecurityPrincipal);
+        context.addToEnvironment(Context.PROVIDER_URL, jmsProviderUrl);
+        context.addToEnvironment(Context.SECURITY_CREDENTIALS, jmsProviderSecurityCredentials);
+        context.addToEnvironment(Context.SECURITY_PRINCIPAL, jmsProviderSecurityPrincipal);
         return context;
     }
 }
