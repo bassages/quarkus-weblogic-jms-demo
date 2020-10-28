@@ -29,7 +29,7 @@ public class MessageSenderService {
 
     @Transactional(rollbackOn = ForceRollbackException.class)
     public void send() throws ForceRollbackException {
-        int randomNumber = random.nextInt(100);
+        final int randomNumber = random.nextInt(100);
 
         try {
             final XAJMSContext xaJmsContext = xajmsContextProducerProducer.getContext();
