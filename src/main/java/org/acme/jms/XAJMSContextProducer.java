@@ -10,7 +10,6 @@ import javax.inject.Inject;
 import javax.jms.XAConnectionFactory;
 import javax.jms.XAJMSContext;
 import javax.jms.XAQueueConnectionFactory;
-import javax.naming.Context;
 import javax.naming.NamingException;
 import javax.transaction.Transaction;
 import javax.transaction.TransactionManager;
@@ -25,6 +24,8 @@ public class XAJMSContextProducer {
 
     @ConfigProperty(name = "jmsConnectionFactoryName")
     String jmsConnectionFactoryName;
+    @ConfigProperty(name = "jmsServerName")
+    String jmsServerName;
 
     @Inject
     ContextFactory contextFactory;
@@ -49,18 +50,23 @@ public class XAJMSContextProducer {
             if (!sessions.containsKey(transaction)) {
                 final XAJMSContext xaJmsContext = connectionFactory.createXAContext();
 
+                final InterposedTransactionManager itm = TransactionHelper.getClientInterposedTransactionManagerThrowsOnException(contextFactory.get(), jmsServerName);
+                if (transaction == null) {
+                    throw new RuntimeException("Please annotate your method with @Transactional");
+                }
+
+                // following will lead to java.lang.IllegalStateException: [JMSClientExceptions:055059]getXAResource can be called only from the server.
+                // transaction.enlistResource(xaJmsContext.getXAResource());
+
+                // instead, we need to get the XAResource from a InterposedTransactionManager
                 // See https://docs.oracle.com/cd/E12839_01/web.1111/e13731/jtatximp.htm#WLJTA297
                 // WebLogic Server can participate in distributed transactions coordinated by third-party systems (referred to as foreign transaction managers).
                 // The WebLogic Server processing is done as part of the work of the external transaction.
                 // The foreign transaction manager then drives the WebLogic Server transaction manager as part of its commit processing.
                 // This is referred to as "importing" transactions into WebLogic Server.
 
-                final String serverName = "AdminServer"; // Can be found in Weblogic console: Environment -> Severs -> <select server> -> Configuration -> General->View JNDI tree
-                final InterposedTransactionManager itm = TransactionHelper.getClientInterposedTransactionManagerThrowsOnException(contextFactory.get(), serverName);
-                if (transaction == null) {
-                    throw new RuntimeException("Please annotate your method with @Transactional");
-                }
                 transaction.enlistResource(itm.getXAResource());
+
                 sessions.put(transaction, xaJmsContext);
                 return xaJmsContext;
             } else {
