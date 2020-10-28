@@ -2,7 +2,6 @@ package org.acme.jms;
 
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
-import org.jboss.logging.Logger;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Observes;
@@ -16,9 +15,7 @@ import java.util.concurrent.TimeUnit;
  * A bean producing random message every 5 seconds and sending them to the Weblogic JMS queue.
  */
 @ApplicationScoped
-public class MessageProducer implements Runnable {
-    private static final Logger LOG = Logger.getLogger(MessageProducer.class);
-
+public class PeriodicMessageSenderTrigger implements Runnable {
     @Inject
     MessageSenderService messageSenderService;
 
