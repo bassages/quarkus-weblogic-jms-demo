@@ -9,7 +9,6 @@ import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Observes;
 import javax.inject.Inject;
 import javax.jms.*;
-import javax.naming.Context;
 import javax.naming.NamingException;
 
 /**
@@ -23,7 +22,7 @@ public class MessageConsumer implements MessageListener, ExceptionListener {
     String queueNameForIncomingMessages;
 
     @Inject
-    Context context;
+    ContextFactory contextFactory;
     @Inject
     QueueConnectionFactory queueConnectionFactory;
 
@@ -36,7 +35,7 @@ public class MessageConsumer implements MessageListener, ExceptionListener {
             queueConnection.setExceptionListener(this);
             queueConnection.start();
 
-            final Queue queue = (Queue) context.lookup(queueNameForIncomingMessages);
+            final Queue queue = (Queue) contextFactory.get().lookup(queueNameForIncomingMessages);
 
             final boolean transacted = false;
             QueueSession queueSession = queueConnection.createQueueSession(transacted, Session.AUTO_ACKNOWLEDGE);

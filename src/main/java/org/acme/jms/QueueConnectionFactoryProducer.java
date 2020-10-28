@@ -6,7 +6,6 @@ import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.inject.Produces;
 import javax.inject.Inject;
 import javax.jms.XAQueueConnectionFactory;
-import javax.naming.Context;
 import javax.naming.NamingException;
 
 @ApplicationScoped
@@ -16,10 +15,10 @@ public class QueueConnectionFactoryProducer {
     String jmsConnectionFactoryName;
 
     @Inject
-    Context context;
+    ContextFactory contextFactory;
 
     @Produces
     public XAQueueConnectionFactory xaQueueConnectionFactory() throws NamingException {
-        return (XAQueueConnectionFactory) context.lookup(jmsConnectionFactoryName);
+        return (XAQueueConnectionFactory) contextFactory.get().lookup(jmsConnectionFactoryName);
     }
 }

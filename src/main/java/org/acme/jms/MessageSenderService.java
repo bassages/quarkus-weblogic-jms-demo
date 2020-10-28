@@ -9,7 +9,6 @@ import javax.jms.JMSProducer;
 import javax.jms.Queue;
 import javax.jms.TextMessage;
 import javax.jms.XAJMSContext;
-import javax.naming.Context;
 import javax.transaction.Transactional;
 import java.util.Random;
 
@@ -21,7 +20,7 @@ public class MessageSenderService {
     String queueNameForOutgoingMessages;
 
     @Inject
-    Context context;
+    ContextFactory contextFactory;
     @Inject
     XAJMSContextProducer xajmsContextProducerProducer;
 
@@ -34,7 +33,7 @@ public class MessageSenderService {
         try {
             final XAJMSContext xaJmsContext = xajmsContextProducerProducer.getContext();
             final JMSProducer producer = xaJmsContext.getContext().createProducer();
-            final Queue queue = (Queue) context.lookup(queueNameForOutgoingMessages);
+            final Queue queue = (Queue) contextFactory.get().lookup(queueNameForOutgoingMessages);
             final TextMessage textMessage = xaJmsContext.createTextMessage(Integer.toString(randomNumber));
 
             LOG.infov("Sending message to queue [{0}]: [{1}]", queueNameForOutgoingMessages, textMessage.getText());

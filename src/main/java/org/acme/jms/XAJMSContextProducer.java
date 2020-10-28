@@ -1,10 +1,8 @@
 package org.acme.jms;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import weblogic.transaction.ClientTxHelper;
 import weblogic.transaction.InterposedTransactionManager;
 import weblogic.transaction.TransactionHelper;
-import weblogic.transaction.TxHelperService;
 
 import javax.annotation.PostConstruct;
 import javax.enterprise.context.ApplicationScoped;
@@ -13,7 +11,6 @@ import javax.jms.XAConnectionFactory;
 import javax.jms.XAJMSContext;
 import javax.jms.XAQueueConnectionFactory;
 import javax.naming.Context;
-import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import javax.transaction.Transaction;
 import javax.transaction.TransactionManager;
@@ -30,7 +27,7 @@ public class XAJMSContextProducer {
     String jmsConnectionFactoryName;
 
     @Inject
-    Context context;
+    ContextFactory contextFactory;
 
     XAConnectionFactory connectionFactory;
 
@@ -39,7 +36,7 @@ public class XAJMSContextProducer {
     @PostConstruct
     public void init() {
         try {
-            connectionFactory = (XAQueueConnectionFactory) context.lookup(jmsConnectionFactoryName);
+            connectionFactory = (XAQueueConnectionFactory) contextFactory.get().lookup(jmsConnectionFactoryName);
         } catch (NamingException e) {
             e.printStackTrace();
         }
@@ -59,7 +56,7 @@ public class XAJMSContextProducer {
                 // This is referred to as "importing" transactions into WebLogic Server.
 
                 final String serverName = "AdminServer"; // Can be found in Weblogic console: Environment -> Severs -> <select server> -> Configuration -> General->View JNDI tree
-                final InterposedTransactionManager itm = TransactionHelper.getClientInterposedTransactionManagerThrowsOnException(context, serverName);
+                final InterposedTransactionManager itm = TransactionHelper.getClientInterposedTransactionManagerThrowsOnException(contextFactory.get(), serverName);
                 if (transaction == null) {
                     throw new RuntimeException("Please annotate your method with @Transactional");
                 }

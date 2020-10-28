@@ -3,13 +3,12 @@ package org.acme.jms;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import javax.enterprise.context.ApplicationScoped;
-import javax.enterprise.inject.Produces;
 import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 
 @ApplicationScoped
-public class ContextProducer {
+public class ContextFactory {
 
     private static final String WEBLOGIC_JNDI_WLINITIAL_CONTEXT_FACTORY = "weblogic.jndi.WLInitialContextFactory";
 
@@ -20,8 +19,7 @@ public class ContextProducer {
     @ConfigProperty(name = "jmsProviderSecurityPrincipal")
     String jmsProviderSecurityPrincipal;
 
-    @Produces
-    public Context produceContext() throws NamingException {
+    public Context get() throws NamingException {
         final Context context = new InitialContext();
         context.addToEnvironment(Context.INITIAL_CONTEXT_FACTORY, WEBLOGIC_JNDI_WLINITIAL_CONTEXT_FACTORY);
         context.addToEnvironment(Context.PROVIDER_URL, jmsProviderUrl);
